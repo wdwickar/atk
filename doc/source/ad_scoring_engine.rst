@@ -1,74 +1,56 @@
 Scoring Engine
 ==============
 
-This section covers the scoring engine installation, configuration
+This section covers the scoring engine configuration, installation, 
 and running the scoring engine.
 
-Installation
-------------
 
-The scoring engine repositories are automatically installed as part of the
-ATK repositories.
-Please see section ATK packages installation.
+Configuration
+-------------
+
+The scoring engine is a tar ball, an artifact of the TAP Tool Kit build.
+1) Download the artifact trustedanalytics-scoring.tar.gz to your TAP source area.
+2) Unpack it; remove the tar ball::
+
+    $ tar -xzf trustedanalytics-scoring.tar.gz
+    $ rm trustedanalytics-scoring.tar.gz
+
+3) Create a manifest file from the supplied template::
+
+    $ cp manifest.yml.tpl manifest.yml
+    
+4) Edit two lines in the file.  Supply the names of your model (in place of SE) and your HDFS service (in place of hdfs-atk)::
+
+    - name: SE # App name
+    ...
+    - hdfs-atk # hdfs service which holds the model tar file
+
 
 Scoring Models Implementation
 -----------------------------
 
 The scoring engine is a generic engine and is oblivious to the streaming
 scoring model.
-It is up to the user of the engine to provide the scoring implementation.
-The implementation, model bytes and the class name is provided in a tar file
-at the startup of the scoring engine.
-The scoring engine expects three files in the tar file as listed below.
+The user provides the scoring implementation: specifically, the URI of the model.
+This is the return value of the method <model>.publish()
+Edit this location into the manifest.yml file, in the line TAR_ARCHIVE at the bottom of the file, such as::
 
-1)  The model implementation jar file.
-    This is the 
-2)  A file by the name modelname.txt that contains the name of the class that
-    implements the scoring in the jar file.
-3)  The file that will have the model bytes that will be used by the scoring.
-    The name of this file will the name of the URL of the rest server.
-    See section starting_scoring_engine_ below.
+    env:
+      TAR_ARCHIVE: 'hdfs://nameservice1/user/tapdev/tap-dev01/models_f9ba22ece24e417fb72ec47eb5087a30.tar'
 
-.. note::
-   
-    If you are using ATK to score, the publish method on the models will
-    create the tar file that can used as input to the scoring engine.
-
-Configuration of the Engine
----------------------------
-
-*/etc/trustedanalytics/scoring/application.conf*
-
-The scoring engine provides a configuration template file which must be used
-to create a configuration file.
-Copy the configuration template file *application.conf.tpl* in the same
-directory, like this::
-
-    $ cd /etc/trustedanalytics/scoring
-    $ sudp cp application.conf.tpl application.conf
-
-Open the file with a text editor::
-
-    $ sudo vi application.conf
-
-Modify the section below to point to the where the scoring tar file is located.
-Below is an example::
-
-    trustedanalytics.scoring-engine {
-      archive-tar = "hdfs://scoring-server.intel.com:8020/user/atkuser/kmeans.tar"
-    }
-
-.. _starting_scoring_engine:
 
 Starting the Scoring Engine Service
 -----------------------------------
 
-Once the application.conf file has been modified to point to the scoring tar
-file, the scoring engine can be started with the following command::
+Once the manifest.yml file has been modified to point to the model URI,
+the scoring engine can be launched and started with the following command,
+run from the directory containing the manifest file::
 
-    $ sudo service scoring-engine start
+    $ cf push
 
 This will launch the rest server for the engine.
+Allow 30-90 seconds for the engine to start and make itself known to the network.
+
 The REST API is::
 
     GET /v1/models/[name]?data=[urlencoded record 1]
@@ -83,7 +65,10 @@ Below is a sample python script to connect to the scoring engine::
     >>> import json
     >>> headers = {'Content-type': 'application/json',
     ...            'Accept': 'application/json,text/plain'}
-    >>> r = requests.post('http://localhost:9099/v1/models/testjson?data=2', headers=headers)
+    >>> r = requests.post('http://my-svm-model.10.10.47.181:9099/v1/score?data=2,17,-6', headers=headers)
+    >>> r.text
+    list(1)
 
-
+**NOTE TO REVIEWERS:** *PET (our project) should maintain a set of test models on a public site.
+This last example should change to connect to one of those models.*
 
